@@ -54,7 +54,7 @@ class SpeedTestClient:
         """
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             # Allow address reuse if needed
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             udp_socket.bind(('', self.listen_port))
 
             while self.running:
