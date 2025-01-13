@@ -6,13 +6,14 @@ Implementation of the server side of the speed test application.
 import socket
 import threading
 import time
-from app.common.constants import DEFAULT_UDP_PORT, DEFAULT_TCP_PORT, UDP_BROADCAST_INTERVAL
-from app.common.packet_structs import pack_offer_message
+from app.common.constants import DEFAULT_UDP_LISTEN_PORT, DEFAULT_UDP_BROADCAST_PORT, DEFAULT_TCP_PORT, UDP_BROADCAST_INTERVAL, MAGIC_COOKIE, MSG_TYPE_REQUEST
+from app.common.packet_structs import pack_offer_message, unpack_request_message, pack_payload_message
 from app.common.utils import get_local_ip, log_color
 
 class SpeedTestServer:
-    def __init__(self, udp_port=DEFAULT_UDP_PORT, tcp_port=DEFAULT_TCP_PORT):
-        self.udp_port = udp_port
+    def __init__(self, udp_listen_port=DEFAULT_UDP_LISTEN_PORT, udp_broadcast_port=DEFAULT_UDP_BROADCAST_PORT, tcp_port=DEFAULT_TCP_PORT):
+        self.udp_listen_port = udp_listen_port
+        self.udp_broadcast_port = udp_broadcast_port
         self.tcp_port = tcp_port
         self.running = True
 
@@ -24,8 +25,8 @@ class SpeedTestServer:
         3. Start listening on TCP socket
         4. Start listening on UDP socket
         """
-        local_ip = get_local_ip()
-        log_color(f"Server started, listening on IP address {local_ip}", "\033[92m")
+        server_ip, server_port = get_local_ip()
+        log_color(f"Server started, listening on IP address {server_ip} on Port={server_port}", "\033[92m")
 
         # Start offer broadcast thread
         threading.Thread(target=self._broadcast_offers, daemon=True).start()
@@ -52,8 +53,9 @@ class SpeedTestServer:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             while self.running:
                 try:
-                    offer_packet = pack_offer_message(self.udp_port, self.tcp_port)
-                    udp_socket.sendto(offer_packet, ('<broadcast>', self.udp_port))
+                    offer_packet = pack_offer_message(self.udp_listen_port, self.tcp_port)
+                    # Print the byte hex data
+                    udp_socket.sendto(offer_packet, ('<broadcast>', self.udp_broadcast_port))
                     time.sleep(UDP_BROADCAST_INTERVAL)
                 except Exception as e:
                     log_color(f"Error broadcasting offer: {e}", "\033[91m")
@@ -103,12 +105,13 @@ class SpeedTestServer:
         except Exception as e:
             log_color(f"TCP client error: {e}", "\033[91m")
 
+
     def _udp_listen(self):
         """
         Listen for UDP requests and spawn threads to handle them.
         """
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-            udp_socket.bind(('', self.udp_port))
+            udp_socket.bind(('', self.udp_listen_port))
             while self.running:
                 try:
                     data, addr = udp_socket.recvfrom(2048)
@@ -117,17 +120,29 @@ class SpeedTestServer:
                     log_color(f"UDP recv error: {e}", "\033[91m")
 
     def _handle_udp_client(self, udp_socket, data, addr):
-        """
-        Handle a single UDP request by sending multiple payload packets.
-        """
-        # TODO: Parse the request, get requested file size, and send payload in chunks.
-        log_color(f"Received UDP request from {addr}", "\033[94m")
-        # Implementation placeholder ...
-        # parse_request_message(data)
-        # send multiple payload packets with sequence numbers
+        # Unpack the client request
+        magic_cookie, msg_type, requested_size = unpack_request_message(data)
+        if magic_cookie != MAGIC_COOKIE or msg_type != MSG_TYPE_REQUEST:
+            return  # Invalid request
+
+        segment_size = 1024
+        total_segments = (requested_size + segment_size - 1) // segment_size  # integer ceil
+        bytes_sent = 0
+
+        for seg_index in range(1, total_segments + 1):
+            to_send = min(segment_size, requested_size - bytes_sent)
+            payload_data = b'a' * to_send  # dummy data
+            
+            packet = pack_payload_message(total_segments, seg_index, payload_data)
+            udp_socket.sendto(packet, addr)
+
+            bytes_sent += to_send
+
+        log_color(f"UDP transfer to {addr} complete, total bytes sent: {bytes_sent}", "\033[92m")
+
 
 def main():
-    server = SpeedTestServer()
+    server = SpeedTestServer(udp_listen_port=13117, udp_broadcast_port=13118, tcp_port=5555)
     server.start()
 
 if __name__ == "__main__":
