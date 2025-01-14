@@ -10,6 +10,7 @@ from app.common.constants import DEFAULT_UDP_BROADCAST_PORT, MAGIC_COOKIE, MSG_T
 from app.common.packet_structs import unpack_offer_message, pack_request_message, unpack_payload_message
 from app.common.utils import log_color
 
+
 class SpeedTestClient:
     def __init__(self, listen_port=DEFAULT_UDP_BROADCAST_PORT):
         """
@@ -62,6 +63,7 @@ class SpeedTestClient:
             while self.running:
                 try:
                     data, addr = udp_socket.recvfrom(2048)
+                    # Get the UDP and TCP ports from the server
                     magic_cookie, msg_type, udp_port, tcp_port = unpack_offer_message(data)
 
                     # If valid offer, spin up speed tests
@@ -120,8 +122,10 @@ class SpeedTestClient:
                     total_received += len(data)
 
             elapsed = time.time() - start_time
+            # Set small value to the test time in case the result is negative
             if elapsed <= 0:
                 elapsed = 1e-6
+            # Calculate the download speed
             speed_bps = (8 * total_received) / elapsed
 
             log_color(
@@ -171,7 +175,7 @@ class SpeedTestClient:
                 total_received_bytes += len(payload)
 
         elapsed = time.time() - start_time
-        if elapsed == 0:
+        if elapsed <= 0:
             elapsed = 1e-9
         speed_bps = (8 * total_received_bytes) / elapsed
 
@@ -193,9 +197,11 @@ class SpeedTestClient:
             "\033[92m"
         )
 
+
 def main():
     client = SpeedTestClient()
     client.start()
+
 
 if __name__ == "__main__":
     main()
