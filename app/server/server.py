@@ -19,10 +19,14 @@ from app.common.packet_structs import (
 )
 from app.common.utils import get_local_ip, log_color
 
+
 class SpeedTestServer:
     def __init__(self):
         self.running = True
-        # We'll create and bind sockets later in start()
+        self.tcp_socket = None
+        self.udp_socket = None
+        self.tcp_port = None
+        self.udp_listen_port = None
 
     def start(self):
         """
@@ -32,15 +36,15 @@ class SpeedTestServer:
         """
         server_ip, _ = get_local_ip()
 
-        # --- 1) Create TCP socket on ephemeral port ---
+        # 1) Create TCP socket on ephemeral port
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.tcp_socket.bind(('', 0))  # 0 => ephemeral port
+        self.tcp_socket.bind(('', 0))
         self.tcp_port = self.tcp_socket.getsockname()[1]
-        self.tcp_socket.listen(5)
+        self.tcp_socket.listen(5)  # Up to 5 TCP connections at the same time
 
-        # --- 2) Create UDP socket on ephemeral port (for incoming requests) ---
+        # 2) Create UDP socket on ephemeral port (for incoming requests)
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_socket.bind(('', 0))  # ephemeral
+        self.udp_socket.bind(('', 0))
         self.udp_listen_port = self.udp_socket.getsockname()[1]
 
         log_color(
@@ -49,7 +53,7 @@ class SpeedTestServer:
             "\033[92m"
         )
 
-        # Start threads
+        # 3) Start threads
         threading.Thread(target=self._broadcast_offers, daemon=True).start()
         threading.Thread(target=self._tcp_listen, daemon=True).start()
         threading.Thread(target=self._udp_listen, daemon=True).start()
@@ -69,8 +73,7 @@ class SpeedTestServer:
         """
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as broadcast_socket:
             broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            # We can also bind to an ephemeral port here if we want to:
-            broadcast_socket.bind(('', 0))  # not strictly necessary
+            broadcast_socket.bind(('', 0))
 
             while self.running:
                 try:
@@ -78,7 +81,7 @@ class SpeedTestServer:
                     # so the client knows where to connect.
                     offer_packet = pack_offer_message(self.udp_listen_port, self.tcp_port)
 
-                    # Send to <broadcast>, on the *fixed* broadcast port 13118
+                    # Send to <broadcast>, the UDP broadcast port
                     broadcast_socket.sendto(offer_packet, ('<broadcast>', DEFAULT_UDP_BROADCAST_PORT))
 
                     time.sleep(UDP_BROADCAST_INTERVAL)
@@ -87,10 +90,11 @@ class SpeedTestServer:
 
     def _tcp_listen(self):
         """
-        Listen for incoming TCP connections on our ephemeral TCP socket.
+        Listen for incoming TCP connections on the TCP socket.
         """
         while self.running:
             try:
+                # Create a thread for each TCP connection
                 client_sock, addr = self.tcp_socket.accept()
                 threading.Thread(
                     target=self._handle_tcp_client, 
@@ -107,6 +111,7 @@ class SpeedTestServer:
         log_color(f"Incoming TCP connection from {addr}", "\033[94m")
         try:
             with client_sock:
+                # receive data
                 data = b""
                 while not data.endswith(b"\n"):
                     chunk = client_sock.recv(1024)
@@ -122,7 +127,7 @@ class SpeedTestServer:
                 bytes_sent = 0
                 while bytes_sent < requested_size:
                     to_send = min(chunk_size, requested_size - bytes_sent)
-                    client_sock.sendall(b'a' * to_send)
+                    client_sock.sendall(b'a' * to_send)  # We send string of a's
                     bytes_sent += to_send
 
                 log_color(f"Completed TCP transfer to {addr}, {bytes_sent} bytes sent.", "\033[92m")
@@ -173,6 +178,7 @@ class SpeedTestServer:
 def main():
     server = SpeedTestServer()
     server.start()
+
 
 if __name__ == "__main__":
     main()
