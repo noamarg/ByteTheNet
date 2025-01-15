@@ -18,7 +18,7 @@ DEFAULT_CONFIG = {
     "BROADCAST_PORT": ("13118", EnvVarType.INT),
     "BROADCAST_INTERVAL": ("1.0", EnvVarType.FLOAT),
 
-    "MAX_TCP_CONNECTIONS": ("5", EnvVarType.INT),
+    "MAX_TCP_CONNECTIONS": ("999", EnvVarType.INT),
 }
 
 def get_config() -> dict[str, any]:
