@@ -4,7 +4,6 @@ General helper functions and classes used by both client and server.
 """
 
 import socket
-import struct
 import time
 
 def get_local_ip() -> tuple[str, str]:
@@ -19,6 +18,7 @@ def get_local_ip() -> tuple[str, str]:
         s.close()
         return ip, port
     except Exception:
+        log_color("Failed to get local IP address. Using fallback port '0'.", "\033[91m")
         return "127.0.0.1", "0"
 
 def current_millis() -> int:

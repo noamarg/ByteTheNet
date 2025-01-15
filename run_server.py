@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """
 run_server.py
 Entry-point script for the server.
