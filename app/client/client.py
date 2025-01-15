@@ -6,17 +6,14 @@ Implementation of the client side of the speed test application.
 import socket
 import threading
 import time
-from app.common.constants import DEFAULT_UDP_BROADCAST_PORT, MAGIC_COOKIE, MSG_TYPE_OFFER, MSG_TYPE_PAYLOAD
+from app.common.config import get_config
 from app.common.packet_structs import unpack_offer_message, pack_request_message, unpack_payload_message
 from app.common.utils import log_color
 
 
 class SpeedTestClient:
-    def __init__(self, listen_port=DEFAULT_UDP_BROADCAST_PORT):
-        """
-        listen_port: The port on which we'll receive broadcast offers.
-        """
-        self.listen_port = listen_port
+    def __init__(self, config: dict[str, any]):
+        self.config = config
         self.running = True
 
     def start(self):
@@ -52,12 +49,11 @@ class SpeedTestClient:
 
     def _listen_for_offers(self):
         """
-        Bind to ( '', 13118 ) by default (or whatever self.listen_port is),
-        then receive broadcast packets from servers.
+        Listen for broadcast offers from servers.
         """
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            udp_socket.bind(('', self.listen_port))  # must match server's broadcast target
+            udp_socket.bind(('', self.config['BROADCAST_PORT']))
 
             while self.running:
                 try:
@@ -66,8 +62,11 @@ class SpeedTestClient:
                     magic_cookie, msg_type, udp_port, tcp_port = unpack_offer_message(data)
 
                     # If valid offer, spin up speed tests
-                    if magic_cookie == MAGIC_COOKIE and msg_type == MSG_TYPE_OFFER:
-                        log_color(f"Received offer from {addr[0]} (UDP port {udp_port}, TCP port {tcp_port})", "\033[94m")
+                    if magic_cookie == self.config['MAGIC_COOKIE'] and msg_type == self.config['MSG_TYPE_OFFER']:
+                        log_color(
+                            f"Received offer from {addr[0]} (UDP port {udp_port}, TCP port {tcp_port})",
+                            "\033[94m"
+                        )
                         self._start_speed_test(addr[0], udp_port, tcp_port)
                 except Exception as e:
                     log_color(f"Error receiving offer: {e}", "\033[91m")
@@ -164,7 +163,7 @@ class SpeedTestClient:
                     # Malformed or unexpected
                     continue
 
-                if magic_cookie != MAGIC_COOKIE or msg_type != MSG_TYPE_PAYLOAD:
+                if magic_cookie != self.config['MAGIC_COOKIE'] or msg_type != self.config['MSG_TYPE_PAYLOAD']:
                     continue
 
                 if total_segments is None:
@@ -198,7 +197,8 @@ class SpeedTestClient:
 
 
 def main():
-    client = SpeedTestClient()
+    config = get_config()
+    client = SpeedTestClient(config)
     client.start()
 
 
