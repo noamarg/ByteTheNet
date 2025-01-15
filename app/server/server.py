@@ -127,7 +127,7 @@ class SpeedTestServer:
                 requested_size = int(requested_size_str)
 
                 # Send requested_size bytes
-                chunk_size = 4096
+                chunk_size = 1024
                 bytes_sent = 0
                 while bytes_sent < requested_size:
                     to_send = min(chunk_size, requested_size - bytes_sent)
@@ -147,7 +147,7 @@ class SpeedTestServer:
 
         while self.running:
             try:
-                data, addr = udp_socket.recvfrom(2048)
+                data, addr = udp_socket.recvfrom(1024)
                 threading.Thread(
                     target=self._handle_udp_client, 
                     args=(data, addr), 

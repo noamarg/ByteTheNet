@@ -4,7 +4,9 @@ Helper functions to pack and unpack packet data using Python's struct module.
 """
 
 import struct
-from app.common.constants import MAGIC_COOKIE, MSG_TYPE_OFFER, MSG_TYPE_REQUEST, MSG_TYPE_PAYLOAD
+from app.common.config import get_config
+
+CONFIG = get_config()
 
 def pack_offer_message(udp_port: int, tcp_port: int) -> bytes:
     """
@@ -12,7 +14,7 @@ def pack_offer_message(udp_port: int, tcp_port: int) -> bytes:
     [ magic cookie (4 bytes), msg type (1 byte), server UDP port (2 bytes), server TCP port (2 bytes) ]
     """
     # '!IBHH' => Network Byte Order, 4-byte int, 1-byte int, 2-byte short, 2-byte short
-    return struct.pack('!IBHH', MAGIC_COOKIE, MSG_TYPE_OFFER, udp_port, tcp_port)
+    return struct.pack('!IBHH', CONFIG['MAGIC_COOKIE'], CONFIG['MSG_TYPE_OFFER'], udp_port, tcp_port)
 
 def unpack_offer_message(data: bytes):
     """
@@ -27,7 +29,7 @@ def pack_request_message(file_size: int) -> bytes:
     Pack a request message:
     [ magic cookie (4 bytes), msg type (1 byte), file size (8 bytes) ]
     """
-    return struct.pack('!IBQ', MAGIC_COOKIE, MSG_TYPE_REQUEST, file_size)
+    return struct.pack('!IBQ', CONFIG['MAGIC_COOKIE'], CONFIG['MSG_TYPE_REQUEST'], file_size)
 
 def unpack_request_message(data: bytes):
     """
@@ -42,7 +44,7 @@ def pack_payload_message(total_segments: int, current_segment: int, payload: byt
     [ magic cookie (4 bytes), msg type (1 byte), total_segments (8 bytes),
       current_segment (8 bytes), payload (variable) ]
     """
-    header = struct.pack('!IBQQ', MAGIC_COOKIE, MSG_TYPE_PAYLOAD, total_segments, current_segment)
+    header = struct.pack('!IBQQ', CONFIG['MAGIC_COOKIE'], CONFIG['MSG_TYPE_PAYLOAD'], total_segments, current_segment)
     return header + payload
 
 def unpack_payload_message(data: bytes):

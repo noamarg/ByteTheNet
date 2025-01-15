@@ -66,7 +66,7 @@ class SpeedTestClient:
 
             while self.running:
                 try:
-                    data, addr = udp_socket.recvfrom(2048)
+                    data, addr = udp_socket.recvfrom(1024)
                     # Get the UDP and TCP ports from the server
                     magic_cookie, msg_type, udp_port, tcp_port = unpack_offer_message(data)
 
@@ -123,7 +123,7 @@ class SpeedTestClient:
 
                 total_received = 0
                 while total_received < self.requested_file_size:
-                    data = tcp_sock.recv(4096)
+                    data = tcp_sock.recv(1024)
                     if not data:
                         break
                     total_received += len(data)
