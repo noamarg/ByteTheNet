@@ -15,7 +15,6 @@ class SpeedTestClient:
     def __init__(self, listen_port=DEFAULT_UDP_BROADCAST_PORT):
         """
         listen_port: The port on which we'll receive broadcast offers.
-        Typically 13118 to match the server's broadcast target.
         """
         self.listen_port = listen_port
         self.running = True
